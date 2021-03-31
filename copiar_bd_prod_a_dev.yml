@@ -1,0 +1,28 @@
+- 
+    name: Hace un volcado de la base de datos de my_app_prod y descarga el fichero al control node
+    hosts: my_app_prod
+    vars:
+    tasks:
+        - name: Hacer dump de la BD de my_app_prod a /tmp
+          shell: mysqldump my_app_prod_database > /tmp/database_dump.sql
+        - name: Copiar el dump a la máquina local
+          fetch:
+            src: /tmp/database_dump.sql
+            dest: ~/database_dumps
+- 
+    name: Sube el fichero al nodo remoto y carga los datos en la base de datos
+    hosts: my_app_dev
+    vars:
+        database_name: my_app_dev_database
+        dump_remote_path: /tmp/database_dump.sql
+    tasks:
+        - name: Copia el fichero en la máquina my_app_dev
+          copy:
+            src: ~/database_dumps/my_app_prod/tmp/database_dump.sql
+            dest: '{{ dump_remote_path }}'
+        - name: Borrar la base de datos existente en my_app_dev
+          shell: mysql -e "drop schema {{database_name}}; create schema {{database_name}};"
+        - name: Cargar la nueva base de datos copiada desde producción
+          shell: mysql {{database_name}} < {{ dump_remote_path }}
+        - name: Aleatorizar los datos
+          shell: cd /srv/my_app/ && php aleatorizar.php
